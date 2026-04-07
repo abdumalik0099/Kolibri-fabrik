@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+@layer base {
+  :root {
+    --background: 40 20% 98%;
+    --foreground: 220 10% 15%;
+
+    --card: 40 15% 97%;
+    --card-foreground: 220 10% 15%;
+
+    --popover: 40 20% 98%;
+    --popover-foreground: 220 10% 15%;
+
+    --primary: 40 60% 50%;
+    --primary-foreground: 40 20% 98%;
+
+    --secondary: 220 5% 25%;
+    --secondary-foreground: 40 20% 98%;
+
+    --muted: 40 10% 93%;
+    --muted-foreground: 220 5% 45%;
+
+    --accent: 40 40% 85%;
+    --accent-foreground: 220 10% 15%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 40 15% 88%;
+    --input: 40 15% 88%;
+    --ring: 40 60% 50%;
+
+    --radius: 0.5rem;
+
+    --gold: 40 60% 50%;
+    --gold-light: 40 50% 75%;
+    --gold-dark: 40 70% 35%;
+    --charcoal: 220 10% 15%;
+    --charcoal-light: 220 5% 25%;
+    --cream: 40 20% 98%;
+    --cream-dark: 40 15% 92%;
+
+    --sidebar-background: 220 10% 15%;
+    --sidebar-foreground: 40 20% 90%;
+    --sidebar-primary: 40 60% 50%;
+    --sidebar-primary-foreground: 40 20% 98%;
+    --sidebar-accent: 220 5% 22%;
+    --sidebar-accent-foreground: 40 20% 90%;
+    --sidebar-border: 220 5% 22%;
+    --sidebar-ring: 40 60% 50%;
+
+    --font-heading: 'Cormorant Garamond', serif;
+    --font-body: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer utilities {
+  .text-gold-gradient {
+    background: linear-gradient(135deg, hsl(40 60% 50%), hsl(40 50% 65%), hsl(40 70% 45%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .bg-gold-gradient {
+    background: linear-gradient(135deg, hsl(40 60% 50%), hsl(40 50% 65%));
+  }
+  .bg-charcoal-gradient {
+    background: linear-gradient(135deg, hsl(220 10% 15%), hsl(220 5% 25%));
+  }
+  .glass {
+    backdrop-filter: blur(20px);
+    background: hsla(40, 20%, 98%, 0.7);
+    border: 1px solid hsla(40, 15%, 88%, 0.5);
+  }
+  .floating {
+    animation: float 6s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(90deg, transparent 0%, hsla(40, 60%, 50%, 0.15) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+}
