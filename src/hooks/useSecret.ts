@@ -3,43 +3,34 @@ import { useNavigate } from 'react-router-dom';
 
 export const useSecret = () => {
   const navigate = useNavigate();
+  const clicks = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ba'zi telefonlarda 'VolumeDown', ba'zilarida 'volumedown'
-      if (e.key.toLowerCase() === 'volumedown') {
-        // Brauzerning ovoz panelini chiqarishini to'xtatishga urinish
-        e.preventDefault();
-        e.stopPropagation();
+    const handleGesture = () => {
+      clicks.current += 1;
 
-        if (!timerRef.current) {
-          console.log("Ovoz tugmasi bosildi, 5 soniya kutilmoqda...");
-          timerRef.current = setTimeout(() => {
-            navigate('/admin');
-            timerRef.current = null;
-          }, 5000);
-        }
+      // Har safar bosilganda taymerni yangilaymiz
+      if (timerRef.current) clearTimeout(timerRef.current);
+
+      // Agar 2 soniya ichida qayta bosilmasa, hisobni nolga tushiramiz
+      timerRef.current = setTimeout(() => {
+        clicks.current = 0;
+      }, 2000);
+
+      // Agar 5 marta tez-tez bosilsa
+      if (clicks.current >= 5) {
+        navigate('/admin');
+        clicks.current = 0;
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'volumedown') {
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-          timerRef.current = null;
-          console.log("Tugma vaqtidan oldin qo'yib yuborildi.");
-        }
-      }
-    };
-
-    // 'capture: true' brauzer o'z funksiyasini bajarishidan oldin bizning kodni ishlatadi
-    document.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
-    document.addEventListener('keyup', handleKeyUp, { capture: true });
+    // Butun ekran bo'ylab bosishni eshitish
+    window.addEventListener('click', handleGesture);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown, { capture: true });
-      document.removeEventListener('keyup', handleKeyUp, { capture: true });
+      window.removeEventListener('click', handleGesture);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [navigate]);
 };
