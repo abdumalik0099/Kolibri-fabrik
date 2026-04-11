@@ -3,50 +3,43 @@ import { useNavigate } from 'react-router-dom';
 
 export const useSecret = () => {
   const navigate = useNavigate();
-  const lastHeight = useRef(window.innerHeight);
-  const clickCount = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const handleResize = () => {
-      const currentHeight = window.innerHeight;
-      
-      // Agar ekran balandligi o'zgarsa (ovoz paneli chiqqan bo'lishi mumkin)
-      if (currentHeight !== lastHeight.current) {
-        clickCount.current += 1;
-        lastHeight.current = currentHeight;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ba'zi telefonlarda 'VolumeDown', ba'zilarida 'volumedown'
+      if (e.key.toLowerCase() === 'volumedown') {
+        // Brauzerning ovoz panelini chiqarishini to'xtatishga urinish
+        e.preventDefault();
+        e.stopPropagation();
 
-        // Birinchi marta bosilganda taymerni ishga tushiramiz
         if (!timerRef.current) {
+          console.log("Ovoz tugmasi bosildi, 5 soniya kutilmoqda...");
           timerRef.current = setTimeout(() => {
-            // Agar 5 soniya ichida o'zgarishlar soni yetarli bo'lsa
-            if (clickCount.current >= 3) { 
-              navigate('/admin');
-            }
-            clickCount.current = 0;
+            navigate('/admin');
             timerRef.current = null;
           }, 5000);
         }
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    
-    // Eski usulni ham qo'shimcha sifatida qoldiramiz (ba'zi modellarda ishlaydi)
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'VolumeDown' || e.key === 'volumedown') {
-        // preventDefault ishlamasligi mumkin, lekin navigate-ni harakatga keltiramiz
-        if (!timerRef.current) {
-          timerRef.current = setTimeout(() => navigate('/admin'), 5000);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'volumedown') {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+          console.log("Tugma vaqtidan oldin qo'yib yuborildi.");
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    // 'capture: true' brauzer o'z funksiyasini bajarishidan oldin bizning kodni ishlatadi
+    document.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+    document.addEventListener('keyup', handleKeyUp, { capture: true });
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, { capture: true });
+      document.removeEventListener('keyup', handleKeyUp, { capture: true });
     };
   }, [navigate]);
 };
