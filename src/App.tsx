@@ -9,11 +9,13 @@ import ProductPage from "./pages/ProductPage";
 import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 import { SearchFocusProvider } from "@/context/SearchFocusContext";
+import { useAnalyticsLogger } from "@/hooks/useAnalyticsLogger";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   useSecret(); // Funksiyani shu yerda ishga tushirdik
+  useAnalyticsLogger();
 
   return (
     <Routes>

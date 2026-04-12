@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Loader2, Upload, X, LogIn, Package, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Upload, X, LogIn, Package, FolderOpen, ChartBar } from "lucide-react";
 import {
   getProducts,
   addProduct,
@@ -16,6 +16,7 @@ import {
   Category,
 } from "@/lib/categories";
 import { toast } from "sonner";
+import StatisticsPanel from "@/components/admin/StatisticsPanel";
 import SearchField from "@/components/SearchField";
 
 const ADMIN_PASS = "parol";
@@ -23,7 +24,7 @@ const ADMIN_PASS = "parol";
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [pass, setPass] = useState("");
-  const [tab, setTab] = useState<"products" | "categories">("products");
+  const [tab, setTab] = useState<"products" | "categories" | "statistics">("products");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState("");
 
@@ -235,13 +236,15 @@ export default function AdminPage() {
         <h1 className="font-heading text-xl">
           <span className="text-gold-gradient">Parda Saloni</span> — Admin
         </h1>
-        <button
-          onClick={tab === "products" ? openAddProduct : openAddCategory}
-          className="bg-gold-gradient text-charcoal px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-        >
-          <Plus size={16} />
-          {tab === "products" ? "Mahsulot qo'shish" : "Kategoriya qo'shish"}
-        </button>
+        {tab !== "statistics" && (
+          <button
+            onClick={tab === "products" ? openAddProduct : openAddCategory}
+            className="bg-gold-gradient text-charcoal px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+          >
+            <Plus size={16} />
+            {tab === "products" ? "Mahsulot qo'shish" : "Kategoriya qo'shish"}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -261,6 +264,14 @@ export default function AdminPage() {
           }`}
         >
           <FolderOpen size={16} /> Kategoriyalar
+        </button>
+        <button
+          onClick={() => setTab("statistics")}
+          className={`px-5 py-3 text-sm font-medium tracking-wider flex items-center gap-2 border-b-2 transition-colors ${
+            tab === "statistics" ? "border-gold text-gold" : "border-transparent text-cream/50 hover:text-cream/80"
+          }`}
+        >
+          <ChartBar size={16} /> Statistika
         </button>
       </div>
 
@@ -408,6 +419,8 @@ export default function AdminPage() {
           </>
         ) : loadingCategories ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
+        ) : loadingCategories ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
         ) : categories.length === 0 ? (
           <div className="text-center py-20 text-cream/50">
             <p className="text-lg">Hozircha kategoriyalar yo'q</p>
@@ -429,6 +442,11 @@ export default function AdminPage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        )}
+        {tab === "statistics" && (
+          <div className="mt-8">
+            <StatisticsPanel />
           </div>
         )}
       </div>
