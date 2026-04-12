@@ -16,6 +16,7 @@ import {
   Category,
 } from "@/lib/categories";
 import { toast } from "sonner";
+import SearchField from "@/components/SearchField";
 
 const ADMIN_PASS = "parol";
 
@@ -24,6 +25,7 @@ export default function AdminPage() {
   const [pass, setPass] = useState("");
   const [tab, setTab] = useState<"products" | "categories">("products");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState("");
 
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
@@ -214,8 +216,17 @@ export default function AdminPage() {
 
   const inputClass = "w-full bg-charcoal border border-gold/20 text-cream rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-gold transition-colors";
   const labelClass = "text-xs uppercase tracking-wider text-cream/60 mb-1 block";
+  const normalizedProductSearch = productSearch.trim().toLowerCase();
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
-  const filteredProducts = selectedCategory ? products.filter((p) => p.category === selectedCategory.name) : products;
+  const productsForCategory = selectedCategory ? products.filter((p) => p.category === selectedCategory.name) : products;
+  const filteredProducts = productsForCategory.filter((product) => {
+    if (!normalizedProductSearch) return true;
+    return (
+      product.title.toLowerCase().includes(normalizedProductSearch) ||
+      product.description.toLowerCase().includes(normalizedProductSearch) ||
+      product.category.toLowerCase().includes(normalizedProductSearch)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-charcoal text-cream">
@@ -326,34 +337,48 @@ export default function AdminPage() {
         {/* ========== TAB CONTENT ========== */}
         {tab === "products" ? (
           <>
-            {categories.length > 0 && (
-              <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
-                <button
-                  onClick={() => setSelectedCategoryId(null)}
-                  className={`min-w-[140px] flex-shrink-0 rounded-2xl border px-4 py-3 text-xs font-semibold uppercase tracking-wider transition ${
-                    selectedCategoryId === null
-                      ? "border-gold bg-gold/10 text-gold"
-                      : "border-gold/20 text-cream/60 hover:text-cream/80"
-                  }`}
-                >
-                  Hammasi
-                </button>
-                {categories.map((c) => (
+            <div className="space-y-4 mb-6">
+              <div className="space-y-2">
+                <SearchField
+                  value={productSearch}
+                  onChange={setProductSearch}
+                  label="Mahsulot qidiruv"
+                  description="Nomi, tavsifi yoki kategoriyasi bo'yicha izlagan narsangizni toping."
+                  placeholder="Masalan: premium klassik yoki yorqin to'qima"
+                />
+                <p className="text-xs text-cream/60">
+                  Natija: {filteredProducts.length} ta mahsulot
+                </p>
+              </div>
+              {categories.length > 0 && (
+                <div className="flex gap-3 overflow-x-auto pb-2">
                   <button
-                    key={c.id}
-                    onClick={() => setSelectedCategoryId(c.id)}
-                    className={`min-w-[140px] flex-shrink-0 rounded-2xl border border-gold/20 bg-charcoal-light/40 text-left transition ${
-                      selectedCategoryId === c.id ? "border-gold text-gold" : "text-cream/60 hover:text-cream/80"
+                    onClick={() => setSelectedCategoryId(null)}
+                    className={`min-w-[140px] flex-shrink-0 rounded-2xl border px-4 py-3 text-xs font-semibold uppercase tracking-wider transition ${
+                      selectedCategoryId === null
+                        ? "border-gold bg-gold/10 text-gold"
+                        : "border-gold/20 text-cream/60 hover:text-cream/80"
                     }`}
                   >
-                    <div className="relative h-20 w-full overflow-hidden rounded-t-2xl">
-                      <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="px-3 py-2 text-xs uppercase tracking-wider">{c.name}</div>
+                    Hammasi
                   </button>
-                ))}
-              </div>
-            )}
+                  {categories.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCategoryId(c.id)}
+                      className={`min-w-[140px] flex-shrink-0 rounded-2xl border border-gold/20 bg-charcoal-light/40 text-left transition ${
+                        selectedCategoryId === c.id ? "border-gold text-gold" : "text-cream/60 hover:text-cream/80"
+                      }`}
+                    >
+                      <div className="relative h-20 w-full overflow-hidden rounded-t-2xl">
+                        <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="px-3 py-2 text-xs uppercase tracking-wider">{c.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {loadingProducts ? (
               <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
             ) : filteredProducts.length === 0 ? (
@@ -381,32 +406,30 @@ export default function AdminPage() {
               </div>
             )}
           </>
+        ) : loadingCategories ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
+        ) : categories.length === 0 ? (
+          <div className="text-center py-20 text-cream/50">
+            <p className="text-lg">Hozircha kategoriyalar yo'q</p>
+            <p className="text-sm mt-2">Yuqoridagi tugmani bosib kategoriya qo'shing</p>
+          </div>
         ) : (
-          loadingCategories ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
-          ) : categories.length === 0 ? (
-            <div className="text-center py-20 text-cream/50">
-              <p className="text-lg">Hozircha kategoriyalar yo'q</p>
-              <p className="text-sm mt-2">Yuqoridagi tugmani bosib kategoriya qo'shing</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {categories.map((c) => (
-                <motion.div key={c.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-charcoal-light border border-gold/10 rounded-xl overflow-hidden group">
-                  <div className="aspect-video overflow-hidden">
-                    <img src={c.imageUrl} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {categories.map((c) => (
+              <motion.div key={c.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-charcoal-light border border-gold/10 rounded-xl overflow-hidden group">
+                <div className="aspect-video overflow-hidden">
+                  <img src={c.imageUrl} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                </div>
+                <div className="p-4">
+                  <h3 className="font-heading text-lg font-semibold">{c.name}</h3>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => openEditCategory(c)} className="flex-1 border border-gold/20 text-gold text-xs py-2 rounded-lg flex items-center justify-center gap-1 hover:bg-gold/10 transition-colors"><Pencil size={14} /> Tahrirlash</button>
+                    <button onClick={() => handleDeleteCategory(c.id)} className="border border-destructive/30 text-destructive text-xs py-2 px-3 rounded-lg flex items-center justify-center hover:bg-destructive/10 transition-colors"><Trash2 size={14} /></button>
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-heading text-lg font-semibold">{c.name}</h3>
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={() => openEditCategory(c)} className="flex-1 border border-gold/20 text-gold text-xs py-2 rounded-lg flex items-center justify-center gap-1 hover:bg-gold/10 transition-colors"><Pencil size={14} /> Tahrirlash</button>
-                      <button onClick={() => handleDeleteCategory(c.id)} className="border border-destructive/30 text-destructive text-xs py-2 px-3 rounded-lg flex items-center justify-center hover:bg-destructive/10 transition-colors"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )
+                </div>
+              </motion.div>
+            ))}
+          </div>
         )}
       </div>
     </div>

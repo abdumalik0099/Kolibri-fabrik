@@ -8,6 +8,7 @@ import CatalogPage from "./pages/CatalogPage";
 import ProductPage from "./pages/ProductPage";
 import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
+import { SearchFocusProvider } from "@/context/SearchFocusContext";
 
 const queryClient = new QueryClient();
 
@@ -29,9 +30,11 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <SearchFocusProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </SearchFocusProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

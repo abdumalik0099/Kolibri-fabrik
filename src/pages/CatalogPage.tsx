@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getProducts, Product } from "@/lib/products";
 import { getCategories, Category } from "@/lib/categories";
+import { useSearchFocus } from "@/context/SearchFocusContext";
 
 export default function CatalogPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -13,6 +14,31 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = searchParams.get("category") || "Barchasi";
+  const searchTerm = searchParams.get("q") || "";
+  const applyParamChanges = (mutator: (params: URLSearchParams) => void) => {
+    const params = new URLSearchParams(searchParams.toString());
+    mutator(params);
+    setSearchParams(params);
+  };
+  const handleCategorySelect = (categoryName?: string) => {
+    applyParamChanges((params) => {
+      if (!categoryName || categoryName === "Barchasi") {
+        params.delete("category");
+      } else {
+        params.set("category", categoryName);
+      }
+    });
+  };
+  const { isSearchFocused } = useSearchFocus();
+
+  const heroTransform = isSearchFocused
+    ? { y: -140, opacity: 0.6 }
+    : { y: 0, opacity: 1 };
+  const categoryTransform = isSearchFocused
+    ? { y: -140, opacity: 0.5 }
+    : { y: 0, opacity: 1 };
+  const heroStyle = isSearchFocused ? { display: "none" } : undefined;
+  const categoryStyle = isSearchFocused ? { display: "none" } : undefined;
 
   useEffect(() => {
     Promise.all([getProducts(), getCategories()])
@@ -21,10 +47,19 @@ export default function CatalogPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered =
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredByCategory =
     activeCategory === "Barchasi"
       ? products
       : products.filter((p) => p.category === activeCategory);
+  const filteredProducts = filteredByCategory.filter((product) => {
+    if (!normalizedSearch) return true;
+    return (
+      product.title.toLowerCase().includes(normalizedSearch) ||
+      product.category.toLowerCase().includes(normalizedSearch) ||
+      product.description.toLowerCase().includes(normalizedSearch)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,9 +69,10 @@ export default function CatalogPage() {
         <div className="container mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
+            animate={heroTransform}
+            transition={{ duration: 0.6, type: "spring", stiffness: 120 }}
             className="text-center mb-12"
+            style={heroStyle}
           >
             <span className="text-sm tracking-[0.2em] uppercase text-gold font-medium">Mahsulotlar</span>
             <h1 className="font-heading text-4xl md:text-6xl mt-3 font-light">
@@ -45,9 +81,14 @@ export default function CatalogPage() {
           </motion.div>
 
           {/* Category filters with images */}
-          <div className="flex flex-wrap justify-center gap-3 mb-12">
+          <motion.div
+            className="flex flex-wrap justify-center gap-3 mb-12"
+            animate={categoryTransform}
+            transition={{ duration: 0.6, type: "spring", stiffness: 120 }}
+            style={categoryStyle}
+          >
             <button
-              onClick={() => setSearchParams({})}
+              onClick={() => handleCategorySelect("Barchasi")}
               className={`px-5 py-2 rounded-full text-sm font-medium tracking-wider uppercase transition-all duration-300 ${
                 activeCategory === "Barchasi"
                   ? "bg-gold-gradient text-charcoal"
@@ -59,7 +100,7 @@ export default function CatalogPage() {
             {categories.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setSearchParams({ category: cat.name })}
+                onClick={() => handleCategorySelect(cat.name)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium tracking-wider uppercase transition-all duration-300 ${
                   activeCategory === cat.name
                     ? "bg-gold-gradient text-charcoal"
@@ -70,20 +111,20 @@ export default function CatalogPage() {
                 {cat.name}
               </button>
             ))}
-          </div>
+          </motion.div>
 
           {loading ? (
             <div className="flex justify-center py-20">
               <Loader2 className="animate-spin text-gold" size={32} />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filteredProducts.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-muted-foreground text-lg">Hozircha mahsulotlar yo'q.</p>
               <p className="text-sm text-muted-foreground/60 mt-2">Admin panelidan mahsulot qo'shing.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {filtered.map((product, i) => (
+              {filteredProducts.map((product, i) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 30 }}
