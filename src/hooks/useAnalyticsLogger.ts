@@ -42,13 +42,17 @@ export function useAnalyticsLogger() {
     const sessionId = getSessionId();
     let isActive = true;
     let currentLocation = "Unknown";
+    let loggedEntry = false;
 
     const registerVisit = async () => {
       const deviceModel = getDeviceModel();
       const location = await getLocationLabel();
       currentLocation = location;
       if (!isActive) return;
-      await logVisit({ deviceModel, location, sessionId });
+      if (!loggedEntry) {
+        await logVisit({ deviceModel, location, sessionId });
+        loggedEntry = true;
+      }
       await upsertPresence(sessionId, { deviceModel, location });
     };
 
@@ -62,7 +66,11 @@ export function useAnalyticsLogger() {
     }, 10_000);
 
     const manualSignal = () => {
-      registerVisit();
+      if (!isActive) return;
+      upsertPresence(sessionId, {
+        deviceModel: getDeviceModel(),
+        location: currentLocation,
+      });
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {

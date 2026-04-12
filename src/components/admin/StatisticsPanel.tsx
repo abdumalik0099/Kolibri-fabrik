@@ -53,6 +53,12 @@ function formatDuration(ms?: number) {
 export default function StatisticsPanel() {
   const [analytics, setAnalytics] = useState<AnalyticsDoc[]>([]);
   const [presence, setPresence] = useState<PresenceDoc[]>([]);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, "analytics"), orderBy("entryTime", "desc"));
@@ -103,18 +109,26 @@ export default function StatisticsPanel() {
 
   const onlineUsers = useMemo(() => {
     const threshold = Date.now() - ONLINE_THRESHOLD_MS;
-    return presence
-      .filter((entry) => (entry.lastActive?.toMillis() ?? 0) >= threshold)
-      .map((entry) => {
-        const entryMs = entry.entryTime?.toMillis() ?? 0;
-        const lastMs = entry.lastActive?.toMillis() ?? 0;
-        return {
+    const latestPerDevice = new Map<string, PresenceDoc & { lastActiveMs: number; durationMs: number }>();
+
+    presence.forEach((entry) => {
+      const lastMs = entry.lastActive?.toMillis() ?? 0;
+      if (lastMs < threshold) return;
+      const entryMs = entry.entryTime?.toMillis() ?? 0;
+      const durationMs = Math.max(0, lastMs - entryMs);
+
+      const key = entry.deviceModel || entry.id;
+      const existing = latestPerDevice.get(key);
+      if (!existing || lastMs > existing.lastActiveMs) {
+        latestPerDevice.set(key, {
           ...entry,
-          durationMs: Math.max(0, lastMs - entryMs),
           lastActiveMs: lastMs,
-        };
-      })
-      .sort((a, b) => (b.lastActiveMs ?? 0) - (a.lastActiveMs ?? 0));
+          durationMs,
+        });
+      }
+    });
+
+    return Array.from(latestPerDevice.values()).sort((a, b) => b.lastActiveMs - a.lastActiveMs);
   }, [presence]);
 
   return (
@@ -177,9 +191,12 @@ export default function StatisticsPanel() {
                 <span>{formatTime(user.lastActive)}</span>
               </div>
               <p className="text-xs text-muted-foreground">{user.location}</p>
-              <p className="text-xs text-muted-foreground">
-                Saytda qancha vaqt: {formatDuration(user.durationMs)}
-              </p>
+                <p className="text-xs text-muted-foreground">
+                  Saytda qancha vaqt:{" "}
+                  {formatDuration(
+                    now - (user.entryTime?.toMillis() ?? (now - (user.durationMs ?? 0))),
+                  )}
+                </p>
             </div>
           ))
         )}
