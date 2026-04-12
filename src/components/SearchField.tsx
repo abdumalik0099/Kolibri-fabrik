@@ -40,7 +40,7 @@ export default function SearchField({
           autoComplete="off"
           onFocus={onFocus}
           onBlur={onBlur}
-          className="pl-10 text-sm"
+          className="pl-10 text-sm text-black"
         />
       </div>
       {description && (
