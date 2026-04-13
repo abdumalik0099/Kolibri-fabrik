@@ -1,9 +1,12 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
   serverTimestamp,
   setDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -35,4 +38,20 @@ export async function upsertPresence(sessionId: string, data: { deviceModel: str
     },
     { merge: true },
   );
+}
+
+export async function resetStatistics() {
+  const analyticsSnapshot = await getDocs(collection(db, "analytics"));
+  const presenceSnapshot = await getDocs(collection(db, "presence"));
+  const batch = writeBatch(db);
+
+  analyticsSnapshot.docs.forEach((docRef) => {
+    batch.delete(doc(db, "analytics", docRef.id));
+  });
+
+  presenceSnapshot.docs.forEach((docRef) => {
+    batch.delete(doc(db, "presence", docRef.id));
+  });
+
+  await batch.commit();
 }

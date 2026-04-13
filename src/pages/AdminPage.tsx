@@ -230,7 +230,7 @@ export default function AdminPage() {
   });
 
   return (
-    <div className="min-h-screen bg-charcoal text-cream">
+    <div className="min-h-screen bg-charcoal text-cream overflow-x-hidden">
       {/* Header */}
       <div className="border-b border-gold/10 px-6 py-4 flex items-center justify-between">
         <h1 className="font-heading text-xl">
@@ -248,18 +248,19 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gold/10 px-6 flex gap-1">
-        <button
-          onClick={() => setTab("products")}
-          className={`px-5 py-3 text-sm font-medium tracking-wider flex items-center gap-2 border-b-2 transition-colors ${
-            tab === "products" ? "border-gold text-gold" : "border-transparent text-cream/50 hover:text-cream/80"
-          }`}
-        >
-          <Package size={16} /> Mahsulotlar
-        </button>
+      <div className="border-b border-gold/10 px-6 overflow-x-auto">
+        <div className="flex gap-1 min-w-max">
+          <button
+            onClick={() => setTab("products")}
+            className={`shrink-0 px-5 py-3 text-sm font-medium tracking-wider inline-flex items-center gap-2 border-b-2 transition-colors ${
+              tab === "products" ? "border-gold text-gold" : "border-transparent text-cream/50 hover:text-cream/80"
+            }`}
+          >
+            <Package size={16} /> Mahsulotlar
+          </button>
         <button
           onClick={() => setTab("categories")}
-          className={`px-5 py-3 text-sm font-medium tracking-wider flex items-center gap-2 border-b-2 transition-colors ${
+          className={`shrink-0 px-5 py-3 text-sm font-medium tracking-wider inline-flex items-center gap-2 border-b-2 transition-colors ${
             tab === "categories" ? "border-gold text-gold" : "border-transparent text-cream/50 hover:text-cream/80"
           }`}
         >
@@ -267,12 +268,13 @@ export default function AdminPage() {
         </button>
         <button
           onClick={() => setTab("statistics")}
-          className={`px-5 py-3 text-sm font-medium tracking-wider flex items-center gap-2 border-b-2 transition-colors ${
+          className={`shrink-0 px-5 py-3 text-sm font-medium tracking-wider inline-flex items-center gap-2 border-b-2 transition-colors ${
             tab === "statistics" ? "border-gold text-gold" : "border-transparent text-cream/50 hover:text-cream/80"
           }`}
         >
           <ChartBar size={16} /> Statistika
         </button>
+      </div>
       </div>
 
       <div className="p-6">
@@ -421,11 +423,6 @@ export default function AdminPage() {
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
         ) : loadingCategories ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gold" size={32} /></div>
-        ) : categories.length === 0 ? (
-          <div className="text-center py-20 text-cream/50">
-            <p className="text-lg">Hozircha kategoriyalar yo'q</p>
-            <p className="text-sm mt-2">Yuqoridagi tugmani bosib kategoriya qo'shing</p>
-          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {categories.map((c) => (
