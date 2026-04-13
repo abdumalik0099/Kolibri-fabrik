@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { HashRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useSecret } from "./hooks/useSecret"; // Hookni import qildik
@@ -33,9 +33,9 @@ const App = () => (
     <TooltipProvider>
       <Sonner />
       <SearchFocusProvider>
-        <BrowserRouter>
+        <HashRouter>
           <AppContent />
-        </BrowserRouter>
+        </HashRouter>
       </SearchFocusProvider>
     </TooltipProvider>
   </QueryClientProvider>
