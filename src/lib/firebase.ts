@@ -1,18 +1,20 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+
+const env = import.meta.env as unknown as Partial<Record<string, string>>;
 
 const firebaseConfig = {
-  apiKey: "AIzaSyASssZsJ916lU5ERMgvDSmsx3MxPNAbYUw",
-  authDomain: "aloqa-tarmoq.firebaseapp.com",
-  projectId: "aloqa-tarmoq",
-  storageBucket: "aloqa-tarmoq.firebasestorage.app",
-  messagingSenderId: "568484567013",
-  appId: "1:568484567013:web:99420835fbe876042e410c",
-  measurementId: "G-JVZ9JT90KX",
+  apiKey: env.VITE_FIREBASE_API_KEY ?? "AIzaSyASssZsJ916lU5ERMgvDSmsx3MxPNAbYUw",
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN ?? "aloqa-tarmoq.firebaseapp.com",
+  projectId: env.VITE_FIREBASE_PROJECT_ID ?? "aloqa-tarmoq",
+  // IMPORTANT: If you see CORS/preflight upload errors, your bucket name or bucket CORS may be wrong.
+  // Set `VITE_FIREBASE_STORAGE_BUCKET` to the exact bucket shown in Firebase Console -> Storage.
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET ?? "aloqa-tarmoq.appspot.com",
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "568484567013",
+  appId: env.VITE_FIREBASE_APP_ID ?? "1:568484567013:web:99420835fbe876042e410c",
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID ?? "G-JVZ9JT90KX",
 };
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 export default app;

@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Loader2, Upload, X, LogIn, Package, FolderOpen, ChartBar } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Upload, X, LogIn, Package, FolderOpen, ChartBar, Images } from "lucide-react";
 import {
   getProducts,
   addProduct,
@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import StatisticsPanel from "@/components/admin/StatisticsPanel";
 import SearchField from "@/components/SearchField";
+import ProductGalleryModal from "@/components/admin/ProductGalleryModal";
 
 const ADMIN_PASS = "parol";
 
@@ -33,6 +34,8 @@ export default function AdminPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   // Categories state
   const [categories, setCategories] = useState<Category[]>([]);
@@ -116,6 +119,11 @@ export default function AdminPage() {
     setDescription(p.description);
     setImageFile(null);
     setShowProductForm(true);
+  }
+
+  function openGallery(p: Product) {
+    setGalleryProduct(p);
+    setGalleryOpen(true);
   }
 
   async function handleProductSubmit(e: FormEvent) {
@@ -384,7 +392,7 @@ export default function AdminPage() {
                       }`}
                     >
                       <div className="relative h-20 w-full overflow-hidden rounded-t-2xl">
-                        <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
+                        <img src={c.imageUrl} alt={c.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       </div>
                       <div className="px-3 py-2 text-xs uppercase tracking-wider">{c.name}</div>
                     </button>
@@ -404,13 +412,16 @@ export default function AdminPage() {
                 {filteredProducts.map((p) => (
                   <motion.div key={p.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-charcoal-light border border-gold/10 rounded-xl overflow-hidden group">
                     <div className="aspect-square overflow-hidden">
-                      <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img src={p.imageUrl} alt={p.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     </div>
                     <div className="p-4">
                       <span className="text-xs tracking-wider uppercase text-gold">{p.category}</span>
                       <h3 className="font-heading text-lg font-semibold mt-1">{p.title}</h3>
                       <div className="flex gap-2 mt-3">
                         <button onClick={() => openEditProduct(p)} className="flex-1 border border-gold/20 text-gold text-xs py-2 rounded-lg flex items-center justify-center gap-1 hover:bg-gold/10 transition-colors"><Pencil size={14} /> Tahrirlash</button>
+                        <button onClick={() => openGallery(p)} className="border border-gold/20 text-gold text-xs py-2 px-3 rounded-lg flex items-center justify-center hover:bg-gold/10 transition-colors" title="Galereya">
+                          <Images size={14} />
+                        </button>
                         <button onClick={() => handleDeleteProduct(p.id)} className="border border-destructive/30 text-destructive text-xs py-2 px-3 rounded-lg flex items-center justify-center hover:bg-destructive/10 transition-colors"><Trash2 size={14} /></button>
                       </div>
                     </div>
@@ -428,7 +439,7 @@ export default function AdminPage() {
             {categories.map((c) => (
               <motion.div key={c.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-charcoal-light border border-gold/10 rounded-xl overflow-hidden group">
                 <div className="aspect-video overflow-hidden">
-                  <img src={c.imageUrl} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img src={c.imageUrl} alt={c.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 </div>
                 <div className="p-4">
                   <h3 className="font-heading text-lg font-semibold">{c.name}</h3>
@@ -447,6 +458,14 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      <ProductGalleryModal
+        open={galleryOpen}
+        productId={galleryProduct?.id || null}
+        productTitle={galleryProduct?.title}
+        onClose={() => setGalleryOpen(false)}
+        onChanged={() => loadProducts()}
+      />
     </div>
   );
 }

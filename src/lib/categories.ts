@@ -7,7 +7,8 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { compressImage } from "./imageUtils";
+import { blobToDataUrl, imageFileToWebp } from "./imageUtils";
+import { telegramFileProxyUrl, uploadImageToTelegram } from "@/lib/telegramUpload";
 
 export interface Category {
   id: string;
@@ -25,7 +26,11 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function addCategory(name: string, imageFile: File): Promise<string> {
-  const imageUrl = await compressImage(imageFile);
+  const webp = await imageFileToWebp(imageFile);
+  const dataUrl = await blobToDataUrl(webp);
+  const tg = await uploadImageToTelegram({ dataUrl, fileName: webp.name || "category.webp" });
+  const bestFileId = tg.largest_file_id || tg.file_id;
+  const imageUrl = telegramFileProxyUrl(bestFileId);
   const docRef = await addDoc(collection(db, COLLECTION), {
     name,
     imageUrl,
@@ -41,7 +46,11 @@ export async function updateCategory(
 ): Promise<void> {
   const updates: Record<string, unknown> = { name };
   if (imageFile) {
-    updates.imageUrl = await compressImage(imageFile);
+    const webp = await imageFileToWebp(imageFile);
+    const dataUrl = await blobToDataUrl(webp);
+    const tg = await uploadImageToTelegram({ dataUrl, fileName: webp.name || "category.webp" });
+    const bestFileId = tg.largest_file_id || tg.file_id;
+    updates.imageUrl = telegramFileProxyUrl(bestFileId);
   }
   await updateDoc(doc(db, COLLECTION, id), updates);
 }

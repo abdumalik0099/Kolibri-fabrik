@@ -10,7 +10,8 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { compressImage } from "./imageUtils";
+import { blobToDataUrl, imageFileToWebp } from "./imageUtils";
+import { telegramFileProxyUrl, uploadImageToTelegram } from "@/lib/telegramUpload";
 
 export interface Product {
   id: string;
@@ -19,6 +20,11 @@ export interface Product {
   category: string;
   description: string;
   imageUrl: string;
+  imageTelegramFileId?: string;
+  imageTelegramMessageId?: number;
+  galleryCoverUrl?: string;
+  galleryCoverThumbUrl?: string;
+  galleryCount?: number;
   createdAt: number;
 }
 
@@ -40,10 +46,16 @@ export async function addProduct(
   data: Omit<Product, "id" | "imageUrl" | "createdAt">,
   imageFile: File
 ): Promise<string> {
-  const imageUrl = await compressImage(imageFile);
+  const webp = await imageFileToWebp(imageFile);
+  const dataUrl = await blobToDataUrl(webp);
+  const tg = await uploadImageToTelegram({ dataUrl, fileName: webp.name || "product.webp" });
+  const bestFileId = tg.largest_file_id || tg.file_id;
+  const imageUrl = telegramFileProxyUrl(bestFileId);
   const docRef = await addDoc(collection(db, COLLECTION), {
     ...data,
     imageUrl,
+    imageTelegramFileId: tg.file_id,
+    imageTelegramMessageId: tg.message_id ?? null,
     createdAt: Date.now(),
   });
   return docRef.id;
@@ -56,7 +68,13 @@ export async function updateProduct(
 ): Promise<void> {
   const updates: Record<string, unknown> = { ...data };
   if (imageFile) {
-    updates.imageUrl = await compressImage(imageFile);
+    const webp = await imageFileToWebp(imageFile);
+    const dataUrl = await blobToDataUrl(webp);
+    const tg = await uploadImageToTelegram({ dataUrl, fileName: webp.name || "product.webp" });
+    const bestFileId = tg.largest_file_id || tg.file_id;
+    updates.imageUrl = telegramFileProxyUrl(bestFileId);
+    updates.imageTelegramFileId = tg.file_id;
+    updates.imageTelegramMessageId = tg.message_id ?? null;
   }
   await updateDoc(doc(db, COLLECTION, id), updates);
 }

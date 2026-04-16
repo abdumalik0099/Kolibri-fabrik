@@ -5,6 +5,9 @@ import { ArrowLeft, Loader2, ZoomIn } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getProduct, Product } from "@/lib/products";
+import BlurUpImage from "@/components/BlurUpImage";
+import { getProductGalleryPage, ProductGalleryItem } from "@/lib/productGallery";
+import type { DocumentSnapshot } from "firebase/firestore";
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,14 +15,51 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [zoomed, setZoomed] = useState(false);
 
+  const [galleryItems, setGalleryItems] = useState<ProductGalleryItem[]>([]);
+  const [galleryCursor, setGalleryCursor] = useState<DocumentSnapshot | null>(null);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryHasMore, setGalleryHasMore] = useState(false);
+
   useEffect(() => {
     if (id) {
-      getProduct(id)
-        .then(setProduct)
+      setLoading(true);
+      setGalleryItems([]);
+      setGalleryCursor(null);
+      setGalleryHasMore(false);
+
+      Promise.all([
+        getProduct(id).then(setProduct),
+        (async () => {
+          setGalleryLoading(true);
+          try {
+            const res = await getProductGalleryPage({ productId: id, pageSize: 12, cursor: null });
+            setGalleryItems(res.items);
+            setGalleryCursor(res.nextCursor);
+            setGalleryHasMore(Boolean(res.nextCursor));
+          } finally {
+            setGalleryLoading(false);
+          }
+        })(),
+      ])
         .catch(console.error)
         .finally(() => setLoading(false));
     }
   }, [id]);
+
+  async function loadMoreGallery() {
+    if (!id || galleryLoading || !galleryHasMore) return;
+    setGalleryLoading(true);
+    try {
+      const res = await getProductGalleryPage({ productId: id, pageSize: 12, cursor: galleryCursor });
+      setGalleryItems((prev) => [...prev, ...res.items]);
+      setGalleryCursor(res.nextCursor);
+      setGalleryHasMore(Boolean(res.nextCursor));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGalleryLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -40,6 +80,11 @@ export default function ProductPage() {
       </div>
     );
   }
+
+  // Gallery items are stored as Telegram proxy URLs (`srcUrl` + optional `thumbUrl`).
+  // Prefer showing the first gallery item as the main image if present.
+  const firstItem = galleryItems[0] as unknown as { srcUrl?: string; dataUrl?: string } | undefined;
+  const mainImage = firstItem?.srcUrl || firstItem?.dataUrl || product.imageUrl;
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,8 +115,10 @@ export default function ProductPage() {
                 onClick={() => setZoomed(!zoomed)}
               >
                 <img
-                  src={product.imageUrl}
+                  src={mainImage}
                   alt={product.title}
+                  loading="eager"
+                  decoding="async"
                   className={`object-cover transition-transform duration-500 ${
                     zoomed ? "max-h-screen max-w-screen" : "w-full h-full group-hover:scale-105"
                   }`}
@@ -82,6 +129,54 @@ export default function ProductPage() {
                   </div>
                 )}
               </div>
+
+              {/* Gallery thumbnails (Base64 from Firestore) */}
+              {galleryItems.length > 1 && !zoomed && (
+                <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {galleryItems.slice(0, 12).map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      className="rounded-lg overflow-hidden border border-gold/10 bg-charcoal/30 hover:border-gold/30 transition"
+                      onClick={() => {
+                        // Replace main image by moving selected item to front (UI-only).
+                        setGalleryItems((prev) => {
+                          const idx = prev.findIndex((p) => p.id === it.id);
+                          if (idx <= 0) return prev;
+                          const next = [...prev];
+                          const [picked] = next.splice(idx, 1);
+                          next.unshift(picked!);
+                          return next;
+                        });
+                      }}
+                      title="Ko'rish"
+                    >
+                      <BlurUpImage
+                        src={(it as unknown as { srcUrl?: string; dataUrl?: string }).srcUrl || (it as unknown as { dataUrl?: string }).dataUrl || ""}
+                        thumbSrc={it.thumbUrl || undefined}
+                        alt="Gallery thumb"
+                        className="aspect-square"
+                        imgClassName="object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {galleryHasMore && !zoomed && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => void loadMoreGallery()}
+                    disabled={galleryLoading}
+                    className="w-full rounded-xl border border-gold/15 bg-charcoal/40 px-4 py-3 text-xs tracking-wider uppercase text-cream/70 hover:text-cream hover:border-gold/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {galleryLoading && <Loader2 size={14} className="animate-spin" />}
+                    Yana rasmlar
+                  </button>
+                </div>
+              )}
             </motion.div>
 
             {/* Details */}

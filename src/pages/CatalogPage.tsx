@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { getProducts, Product } from "@/lib/products";
 import { getCategories, Category } from "@/lib/categories";
 import { useSearchFocus } from "@/context/SearchFocusContext";
+import SearchField from "@/components/SearchField";
 
 export default function CatalogPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -29,7 +30,7 @@ export default function CatalogPage() {
       }
     });
   };
-  const { isSearchFocused } = useSearchFocus();
+  const { isSearchFocused, setSearchFocused } = useSearchFocus();
 
   const heroTransform = isSearchFocused
     ? { y: -140, opacity: 0.6 }
@@ -79,6 +80,24 @@ export default function CatalogPage() {
               Bizning <span className="text-gold-gradient font-semibold italic">katalog</span>
             </h1>
           </motion.div>
+
+          <div className="max-w-2xl mx-auto mb-10">
+            <SearchField
+              value={searchTerm}
+              onChange={(value) =>
+                applyParamChanges((params) => {
+                  const next = value.trim();
+                  if (!next) params.delete("q");
+                  else params.set("q", next);
+                })
+              }
+              label="Qidiruv"
+              description="Mahsulot nomi, tavsifi yoki kategoriyasi bo'yicha qidiring."
+              placeholder="Masalan: premium, klassik, oq rang..."
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+            />
+          </div>
 
           {/* Category filters with images */}
           <motion.div
