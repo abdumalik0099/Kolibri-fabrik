@@ -157,28 +157,33 @@ export default function ProductPage() {
 
               {/* Product main thumb first, then attached gallery thumbs */}
               {(productImageUrl || gallerySources.length > 0) && !zoomed && !productVideoUrl && (
-                <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {[productImageUrl, ...gallerySources].filter(Boolean).slice(0, 12).map((src, idx) => (
-                    <button
-                      key={`${src}-${idx}`}
-                      type="button"
-                      className={`rounded-lg overflow-hidden border bg-charcoal/30 transition ${
-                        src === mainImage ? "border-gold/60" : "border-gold/10 hover:border-gold/30"
-                      }`}
-                      onClick={() => setSelectedImage(src || "")}
-                      title="Ko'rish"
-                    >
-                      <BlurUpImage
-                        src={src || ""}
-                        alt="Gallery thumb"
-                        className="aspect-square"
-                        imgClassName="object-cover"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
+  <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2">
+    {[productImageUrl, ...gallerySources].filter(Boolean).slice(0, 12).map((src, idx) => {
+      // DEBUG: Rasm linklarini tekshirish uchun
+      console.log("Rasm linki:", src); 
+      
+      return (
+        <button
+          key={`${src}-${idx}`}
+          type="button"
+          className={`rounded-lg overflow-hidden border bg-charcoal/30 transition ${
+            src === mainImage ? "border-gold/60" : "border-gold/10 hover:border-gold/30"
+          }`}
+          onClick={() => setSelectedImage(src || "")}
+          title="Ko'rish"
+        >
+          <BlurUpImage
+            src={src || ""}
+            alt="Gallery thumb"
+            className="aspect-square"
+            imgClassName="object-cover"
+            loading="lazy"
+          />
+        </button>
+      );
+    })}
+  </div>
+)}
 
               {galleryHasMore && !zoomed && (
                 <div className="mt-4">

@@ -21,7 +21,6 @@ function sendJson(res, status, payload) {
 }
 
 function setCors(req, res) {
-  // Same-origin in production. Keep permissive for local previews.
   const origin = req.headers.origin || "*";
   res.setHeader("access-control-allow-origin", origin);
   res.setHeader("access-control-allow-methods", "POST,OPTIONS");
@@ -57,62 +56,54 @@ function readJsonBody(req, maxBytes = 100 * 1024 * 1024) {
 function dataUrlToBuffer(dataUrl) {
   const match = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl || "");
   if (!match) throw new Error("Invalid dataUrl");
-  const mime = match[1];
-  const b64 = match[2];
-  const buf = Buffer.from(b64, "base64");
-  return { mime, buf };
+  return { mime: match[1], buf: Buffer.from(match[2], "base64") };
 }
 
-async function sendPhotoToChannel({ dataUrl, fileName, caption }) {
+// ✅ FIX: sendPhoto o'rniga sendDocument - Telegram siqmaydi, original sifat saqlanadi
+async function sendDocumentToChannel({ dataUrl, fileName }) {
   if (!BOT_TOKEN) throw new Error("Missing TELEGRAM_BOT_TOKEN");
   if (!CHAT_ID) throw new Error("Missing TELEGRAM_CHAT_ID");
 
   const { mime, buf } = dataUrlToBuffer(dataUrl);
   const form = new FormData();
   form.set("chat_id", CHAT_ID);
-  if (caption) form.set("caption", caption);
-  form.set("photo", new Blob([buf], { type: mime || "image/webp" }), fileName || "image.webp");
+  form.set("document", new Blob([buf], { type: mime || "image/webp" }), fileName || "image.webp");
 
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
-  const res = await fetch(url, { method: "POST", body: form });
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+    method: "POST",
+    body: form,
+  });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.ok) {
-    const desc = json?.description || `Telegram error ${res.status}`;
-    throw new Error(desc);
+    throw new Error(json?.description || `Telegram error ${res.status}`);
   }
   return json.result;
 }
 
 export default async function handler(req, res) {
   setCors(req, res);
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
-    return;
-  }
-  if (req.method !== "POST") {
-    sendJson(res, 405, { error: "Method not allowed" });
-    return;
-  }
+  if (req.method === "OPTIONS") { res.statusCode = 204; res.end(); return; }
+  if (req.method !== "POST") { sendJson(res, 405, { error: "Method not allowed" }); return; }
 
   try {
     const body = await readJsonBody(req);
     const { dataUrl, fileName, mediaType } = body || {};
     if (mediaType === "video") throw new Error("Video upload is handled directly from the frontend");
 
-    const result = await sendPhotoToChannel({ dataUrl, fileName });
-    const photos = Array.isArray(result?.photo) ? result.photo : [];
-    if (photos.length === 0) throw new Error("No photo in sendPhoto result");
-    const smallestFileId = photos[0]?.file_id || null;
-    const largestFileId = photos[photos.length - 1]?.file_id || null;
+    // ✅ sendDocument - original sifatli rasm, Telegram siqmaydi
+    const result = await sendDocumentToChannel({ dataUrl, fileName });
+
+    const fileId = result?.document?.file_id;
+    if (!fileId) throw new Error("No file_id in Telegram response");
+
+    // ✅ document da faqat bitta file_id bo'ladi (photo kabi array emas)
     sendJson(res, 200, {
-      file_id: smallestFileId || largestFileId,
-      smallest_file_id: smallestFileId,
-      largest_file_id: largestFileId,
+      file_id: fileId,
+      smallest_file_id: fileId,
+      largest_file_id: fileId,
       message_id: result?.message_id,
     });
   } catch (err) {
     sendJson(res, 400, { error: err instanceof Error ? err.message : "Unknown error" });
   }
 }
-

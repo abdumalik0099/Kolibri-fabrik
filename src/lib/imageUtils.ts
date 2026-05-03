@@ -54,9 +54,9 @@ export async function imageFileToWebp(
   {
     maxWidth = 2560,
     maxHeight = 2560,
-    maxBytes = 700_000,
-    initialQuality = 0.86,
-    minQuality = 0.55,
+    maxBytes = 5_000_000, // 700,000 ni 5,000,000 ga (5MB) o'zgartiring
+    initialQuality = 0.9, // Sifatni biroz oshiramiz (0.86 dan 0.9 ga)
+    minQuality = 0.7,     // Min sifatni ham oshiramiz
     fileNameBase,
   }: WebpEncodeOptions = {}
 ): Promise<File> {
