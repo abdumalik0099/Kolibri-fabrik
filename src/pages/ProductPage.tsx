@@ -1,8 +1,8 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, ZoomIn } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { getProduct, getProductImageUrl, getProductVideoUrl, Product } from "../lib/products";
@@ -15,7 +15,8 @@ export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [zoomed, setZoomed] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string>("");
 
   const [galleryItems, setGalleryItems] = useState<ProductGalleryItem[]>([]);
@@ -50,9 +51,30 @@ export default function ProductPage() {
   }, [id]);
 
   useEffect(() => {
-    // Default large image should be the product card image the user clicked.
     setSelectedImage(getProductImageUrl(product || {}) || "");
   }, [product]);
+
+  // Lightbox ochiq bo'lsa scroll o'chirish
+  useEffect(() => {
+    if (lightboxOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [lightboxOpen]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (e.key === "ArrowRight") setLightboxIndex((i) => (i + 1) % allMedia.length);
+      if (e.key === "ArrowLeft") setLightboxIndex((i) => (i - 1 + allMedia.length) % allMedia.length);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   async function loadMoreGallery() {
     if (!id || galleryLoading || !galleryHasMore) return;
@@ -89,14 +111,41 @@ export default function ProductPage() {
     );
   }
 
-  // Keep product.imageUrl as first/default image, then show gallery attachments.
   const productImageUrl = getProductImageUrl(product);
   const productVideoUrl = getProductVideoUrl(product);
+
   const gallerySources = galleryItems
-    .map((it) => (it as unknown as { srcUrl?: string; dataUrl?: string }).srcUrl || (it as unknown as { dataUrl?: string }).dataUrl || "")
+    .map((it) => (it as unknown as { srcUrl?: string }).srcUrl || "")
     .filter(Boolean)
     .filter((src) => src !== productImageUrl);
+
   const mainImage = selectedImage || productImageUrl || gallerySources[0] || "";
+
+  // Barcha media (rasm + gallery) lightbox uchun
+  // Video birinchi o'rinda bo'lsa uni ham qo'shamiz
+  type MediaItem = { type: "image"; src: string } | { type: "video"; src: string };
+  const allMedia: MediaItem[] = [
+    ...(productVideoUrl ? [{ type: "video" as const, src: productVideoUrl }] : []),
+    ...([productImageUrl, ...gallerySources].filter(Boolean).map((src) => ({
+      type: "image" as const,
+      src: src!,
+    }))),
+  ];
+
+  function openLightbox(index: number) {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  }
+
+  // Thumbnail bosish: rasm uchun selectedImage + lightbox index
+  function handleThumbClick(src: string, thumbIdx: number) {
+    setSelectedImage(src);
+    // lightbox index: video bo'lsa +1 offset
+    const offset = productVideoUrl ? 1 : 0;
+    setLightboxIndex(offset + thumbIdx);
+  }
+
+  const currentMedia = allMedia[lightboxIndex];
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,28 +162,35 @@ export default function ProductPage() {
           </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Image */}
+            {/* Asosiy media */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="relative group"
             >
+              {/* Asosiy ko'rsatish maydoni */}
               <div
-                className={`relative overflow-hidden rounded-2xl cursor-zoom-in ${
-                  zoomed ? "fixed inset-0 z-50 bg-charcoal/90 flex items-center justify-center rounded-none cursor-zoom-out" : "aspect-[3/4]"
-                }`}
-                onClick={() => setZoomed(!zoomed)}
+                className="relative overflow-hidden rounded-2xl aspect-[3/4] bg-muted cursor-pointer"
+                onClick={() => {
+                  // Video bo'lsa index=0, rasm bo'lsa tegishli index
+                  if (productVideoUrl) {
+                    openLightbox(0);
+                  } else {
+                    const idx = [productImageUrl, ...gallerySources].filter(Boolean).findIndex((s) => s === mainImage);
+                    openLightbox(Math.max(0, idx));
+                  }
+                }}
               >
                 {productVideoUrl ? (
+                  // ✅ Video - hover effekti YO'Q, bosish = lightbox
                   <video
                     src={productVideoUrl}
-                    controls
+                    muted
+                    loop
+                    autoPlay
                     playsInline
                     preload="metadata"
-                    className={`object-cover transition-transform duration-500 ${
-                      zoomed ? "max-h-screen max-w-screen" : "w-full h-full group-hover:scale-105"
-                    }`}
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <img
@@ -143,49 +199,60 @@ export default function ProductPage() {
                     loading="eager"
                     decoding="async"
                     onError={(e) => { e.currentTarget.src = logoPlaceholder; }}
-                    className={`object-cover transition-transform duration-500 ${
-                      zoomed ? "max-h-screen max-w-screen" : "w-full h-full group-hover:scale-105"
-                    }`}
+                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                   />
                 )}
-                {!zoomed && (
-                  <div className="absolute top-4 right-4 bg-charcoal/50 backdrop-blur-sm text-cream rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ZoomIn size={18} />
+                {/* Kattalashtirish belgisi */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/20">
+                  <div className="bg-black/50 backdrop-blur-sm rounded-full p-3">
+                    <svg width="24" height="24" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Product main thumb first, then attached gallery thumbs */}
-              {(productImageUrl || gallerySources.length > 0) && !zoomed && !productVideoUrl && (
-  <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2">
-    {[productImageUrl, ...gallerySources].filter(Boolean).slice(0, 12).map((src, idx) => {
-      // DEBUG: Rasm linklarini tekshirish uchun
-      console.log("Rasm linki:", src); 
-      
-      return (
-        <button
-          key={`${src}-${idx}`}
-          type="button"
-          className={`rounded-lg overflow-hidden border bg-charcoal/30 transition ${
-            src === mainImage ? "border-gold/60" : "border-gold/10 hover:border-gold/30"
-          }`}
-          onClick={() => setSelectedImage(src || "")}
-          title="Ko'rish"
-        >
-          <BlurUpImage
-            src={src || ""}
-            alt="Gallery thumb"
-            className="aspect-square"
-            imgClassName="object-cover"
-            loading="lazy"
-          />
-        </button>
-      );
-    })}
-  </div>
-)}
+              {/* Thumbnaillar */}
+              {(productImageUrl || gallerySources.length > 0) && (
+                <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {/* Video thumbnail */}
+                  {productVideoUrl && (
+                    <button
+                      type="button"
+                      className="rounded-lg overflow-hidden border border-gold/10 hover:border-gold/30 transition bg-charcoal/30 relative"
+                      onClick={() => openLightbox(0)}
+                    >
+                      <div className="aspect-square flex items-center justify-center bg-charcoal/60">
+                        <svg width="28" height="28" fill="white" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    </button>
+                  )}
 
-              {galleryHasMore && !zoomed && (
+                  {/* Rasm thumbnaillar */}
+                  {[productImageUrl, ...gallerySources].filter(Boolean).slice(0, 11).map((src, idx) => (
+                    <button
+                      key={`${src}-${idx}`}
+                      type="button"
+                      className={`rounded-lg overflow-hidden border transition bg-charcoal/30 ${
+                        src === mainImage ? "border-gold/60" : "border-gold/10 hover:border-gold/30"
+                      }`}
+                      onClick={() => handleThumbClick(src!, idx)}
+                    >
+                      <BlurUpImage
+                        src={src || ""}
+                        alt="Gallery thumb"
+                        className="aspect-square"
+                        imgClassName="object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {galleryHasMore && (
                 <div className="mt-4">
                   <button
                     type="button"
@@ -200,7 +267,7 @@ export default function ProductPage() {
               )}
             </motion.div>
 
-            {/* Details */}
+            {/* Ma'lumotlar */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
@@ -231,6 +298,95 @@ export default function ProductPage() {
       </section>
 
       <Footer />
+
+      {/* ✅ LIGHTBOX - to'liq ekran */}
+      <AnimatePresence>
+        {lightboxOpen && currentMedia && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Yopish tugmasi */}
+            <button
+              className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition"
+              onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
+            >
+              <X size={24} />
+            </button>
+
+            {/* Oldingi */}
+            {allMedia.length > 1 && (
+              <button
+                className="absolute left-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i - 1 + allMedia.length) % allMedia.length);
+                }}
+              >
+                <ChevronLeft size={28} />
+              </button>
+            )}
+
+            {/* Keyingi */}
+            {allMedia.length > 1 && (
+              <button
+                className="absolute right-16 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i + 1) % allMedia.length);
+                }}
+              >
+                <ChevronRight size={28} />
+              </button>
+            )}
+
+            {/* Media */}
+            <motion.div
+              key={lightboxIndex}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {currentMedia.type === "video" ? (
+                <video
+                  src={currentMedia.src}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-w-[90vw] max-h-[90vh] rounded-xl"
+                />
+              ) : (
+                <img
+                  src={currentMedia.src}
+                  alt={product.title}
+                  className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
+                  onError={(e) => { e.currentTarget.src = logoPlaceholder; }}
+                />
+              )}
+            </motion.div>
+
+            {/* Sahifa ko'rsatkichi */}
+            {allMedia.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {allMedia.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex(i); }}
+                    className={`w-2 h-2 rounded-full transition ${i === lightboxIndex ? "bg-white" : "bg-white/30"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
