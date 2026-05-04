@@ -1,7 +1,5 @@
 // Vercel Serverless Function: GET /api/file/:fileId
-// Proxies Telegram file bytes without exposing bot token to the browser.
 
-// ✅ TELEGRAM_BOT_TOKEN environment variable'dan o'qiladi (Vercel dashboard'dan o'rnating)
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 
 function sendJson(res, status, payload) {
@@ -17,7 +15,6 @@ function setCors(req, res) {
   res.setHeader("access-control-allow-headers", "content-type");
 }
 
-// ✅ getTelegramFilePath - to'liq ishlaydi, xato JSON qaytaradi
 async function getTelegramFilePath(fileId) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/getFile`;
   const res = await fetch(url, {
@@ -35,7 +32,7 @@ async function getTelegramFilePath(fileId) {
   return filePath;
 }
 
-const filePathCache = new Map(); // fileId -> file_path (warm instance only)
+const filePathCache = new Map();
 
 async function getFilePath(fileId) {
   const cached = filePathCache.get(fileId);
@@ -48,29 +45,19 @@ async function getFilePath(fileId) {
 export default async function handler(req, res) {
   setCors(req, res);
 
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
-    return;
-  }
-
-  if (req.method !== "GET") {
-    sendJson(res, 405, { error: "Method not allowed" });
-    return;
-  }
+  if (req.method === "OPTIONS") { res.statusCode = 204; res.end(); return; }
+  if (req.method !== "GET") { sendJson(res, 405, { error: "Method not allowed" }); return; }
 
   try {
     if (!BOT_TOKEN) {
-      throw new Error("TELEGRAM_BOT_TOKEN environment variable o'rnatilmagan (Vercel dashboard'ga qo'shing)");
+      throw new Error("TELEGRAM_BOT_TOKEN environment variable o'rnatilmagan");
     }
 
     const fileId = Array.isArray(req.query?.fileId)
       ? req.query.fileId[0]
       : req.query?.fileId;
 
-    if (!fileId) {
-      throw new Error("fileId parametri topilmadi");
-    }
+    if (!fileId) throw new Error("fileId parametri topilmadi");
 
     const filePath = await getFilePath(String(fileId));
     const tgUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
@@ -81,12 +68,22 @@ export default async function handler(req, res) {
     }
 
     const buf = Buffer.from(await tgRes.arrayBuffer());
+
+    // ✅ FIX: content-type to'g'ri aniqlanadi
+    let contentType = tgRes.headers.get("content-type") || "";
+    if (!contentType || contentType === "application/octet-stream") {
+      if (filePath.endsWith(".webp")) contentType = "image/webp";
+      else if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) contentType = "image/jpeg";
+      else if (filePath.endsWith(".png")) contentType = "image/png";
+      else contentType = "image/jpeg";
+    }
+
     res.statusCode = 200;
-    res.setHeader("content-type", tgRes.headers.get("content-type") || "application/octet-stream");
+    res.setHeader("content-type", contentType);
     res.setHeader("cache-control", "public, max-age=31536000, immutable");
+    res.setHeader("x-content-type-options", "nosniff");
     res.end(buf);
   } catch (err) {
-    // ✅ 500 emas - aniq JSON xato xabari
     const message = err instanceof Error ? err.message : "Fayl topilmadi";
     console.error("[api/file/[fileId]] error:", message);
     sendJson(res, 400, { error: message });

@@ -1,5 +1,4 @@
 // Vercel Serverless Function: POST /api/upload
-// Uploads a base64 dataUrl image to Telegram channel and returns file_ids + message_id.
 
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const CHAT_ID_RAW = (process.env.TELEGRAM_CHAT_ID || "").trim();
@@ -59,15 +58,17 @@ function dataUrlToBuffer(dataUrl) {
   return { mime: match[1], buf: Buffer.from(match[2], "base64") };
 }
 
-// ✅ FIX: sendPhoto o'rniga sendDocument - Telegram siqmaydi, original sifat saqlanadi
-async function sendDocumentToChannel({ dataUrl, fileName }) {
-  if (!BOT_TOKEN) throw new Error("Missing TELEGRAM_BOT_TOKEN");
-  if (!CHAT_ID) throw new Error("Missing TELEGRAM_CHAT_ID");
+// sendDocument - katta fayllar uchun fallback
+async function sendDocumentToChannel({ dataUrl, fileName, mime, buf }) {
+  if (!mime || !buf) {
+    const parsed = dataUrlToBuffer(dataUrl);
+    mime = parsed.mime;
+    buf = parsed.buf;
+  }
 
-  const { mime, buf } = dataUrlToBuffer(dataUrl);
   const form = new FormData();
   form.set("chat_id", CHAT_ID);
-  form.set("document", new Blob([buf], { type: mime || "image/webp" }), fileName || "image.webp");
+  form.set("document", new Blob([buf], { type: mime || "image/jpeg" }), fileName || "image.jpg");
 
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
     method: "POST",
@@ -77,7 +78,59 @@ async function sendDocumentToChannel({ dataUrl, fileName }) {
   if (!res.ok || !json?.ok) {
     throw new Error(json?.description || `Telegram error ${res.status}`);
   }
-  return json.result;
+
+  const fileId = json.result?.document?.file_id;
+  if (!fileId) throw new Error("No file_id in Telegram document response");
+
+  return {
+    file_id: fileId,
+    smallest_file_id: fileId,
+    largest_file_id: fileId,
+    message_id: json.result?.message_id,
+  };
+}
+
+// ✅ sendPhoto - photo[] array'dan eng katta file_id olinadi, getFile LIMITSIZ
+async function sendPhotoToChannel({ dataUrl, fileName }) {
+  if (!BOT_TOKEN) throw new Error("Missing TELEGRAM_BOT_TOKEN");
+  if (!CHAT_ID) throw new Error("Missing TELEGRAM_CHAT_ID");
+
+  const { mime, buf } = dataUrlToBuffer(dataUrl);
+
+  // 9.5MB dan katta bo'lsa sendDocument ga fallback
+  if (buf.length / (1024 * 1024) > 9.5) {
+    return await sendDocumentToChannel({ dataUrl, fileName, mime, buf });
+  }
+
+  const form = new FormData();
+  form.set("chat_id", CHAT_ID);
+  const photoFileName = (fileName || "image").replace(/\.[^.]+$/, "") + ".jpg";
+  form.set("photo", new Blob([buf], { type: "image/jpeg" }), photoFileName);
+
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+    method: "POST",
+    body: form,
+  });
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok || !json?.ok) {
+    const desc = json?.description || `Telegram error ${res.status}`;
+    console.error("[upload] sendPhoto failed:", desc, "- falling back to sendDocument");
+    return await sendDocumentToChannel({ dataUrl, fileName, mime, buf });
+  }
+
+  const photos = json.result?.photo;
+  if (!photos || photos.length === 0) throw new Error("No photo array in Telegram response");
+
+  const largest = photos[photos.length - 1];
+  const smallest = photos[0];
+
+  return {
+    file_id: largest.file_id,
+    smallest_file_id: smallest?.file_id ?? null,
+    largest_file_id: largest.file_id,
+    message_id: json.result?.message_id,
+  };
 }
 
 export default async function handler(req, res) {
@@ -90,18 +143,13 @@ export default async function handler(req, res) {
     const { dataUrl, fileName, mediaType } = body || {};
     if (mediaType === "video") throw new Error("Video upload is handled directly from the frontend");
 
-    // ✅ sendDocument - original sifatli rasm, Telegram siqmaydi
-    const result = await sendDocumentToChannel({ dataUrl, fileName });
+    const result = await sendPhotoToChannel({ dataUrl, fileName });
 
-    const fileId = result?.document?.file_id;
-    if (!fileId) throw new Error("No file_id in Telegram response");
-
-    // ✅ document da faqat bitta file_id bo'ladi (photo kabi array emas)
     sendJson(res, 200, {
-      file_id: fileId,
-      smallest_file_id: fileId,
-      largest_file_id: fileId,
-      message_id: result?.message_id,
+      file_id: result.file_id,
+      smallest_file_id: result.smallest_file_id ?? result.file_id,
+      largest_file_id: result.largest_file_id ?? result.file_id,
+      message_id: result.message_id,
     });
   } catch (err) {
     sendJson(res, 400, { error: err instanceof Error ? err.message : "Unknown error" });

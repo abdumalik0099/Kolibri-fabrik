@@ -1,5 +1,4 @@
 async function decodeImageSource(file: Blob): Promise<HTMLImageElement | ImageBitmap> {
-  // Prefer createImageBitmap: faster + avoids some <img> decode hangs on big/odd files.
   if (typeof createImageBitmap === "function") {
     try {
       return await createImageBitmap(file);
@@ -45,18 +44,14 @@ export type WebpEncodeOptions = {
   fileNameBase?: string;
 };
 
-/**
- * Converts any image file into a compressed WebP File in the browser.
- * Uses an adaptive loop to get under `maxBytes` while keeping quality high.
- */
 export async function imageFileToWebp(
   file: File,
   {
     maxWidth = 2560,
     maxHeight = 2560,
-    maxBytes = 5_000_000, // 700,000 ni 5,000,000 ga (5MB) o'zgartiring
-    initialQuality = 0.9, // Sifatni biroz oshiramiz (0.86 dan 0.9 ga)
-    minQuality = 0.7,     // Min sifatni ham oshiramiz
+    maxBytes = 5_000_000,
+    initialQuality = 0.9,
+    minQuality = 0.7,
     fileNameBase,
   }: WebpEncodeOptions = {}
 ): Promise<File> {
@@ -84,21 +79,23 @@ export async function imageFileToWebp(
   targetH = Math.max(1, Math.round(targetH * ratio));
 
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d", { alpha: false })!;
+  // ✅ FIX: alpha: true - shaffof piksellar to'g'ri ishlaydi
+  const ctx = canvas.getContext("2d", { alpha: true })!;
 
   let quality = initialQuality;
   let attempts = 0;
   let blob: Blob | null = null;
 
-  // Iteratively lower quality, and if needed, lower dimensions slightly.
-  // Keeps attempts bounded to avoid freezing the UI on bulk operations.
   while (attempts < 10) {
     canvas.width = targetW;
     canvas.height = targetH;
-    ctx.clearRect(0, 0, targetW, targetH);
+    // ✅ FIX: oq fon - qora fon muammosini hal qiladi
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, targetW, targetH);
     ctx.drawImage(decoded as unknown as CanvasImageSource, 0, 0, targetW, targetH);
 
-    const encoded = await canvasToBlob(canvas, "image/webp", quality);
+    // ✅ FIX: JPEG format - sendPhoto uchun mos (WebP emas)
+    const encoded = await canvasToBlob(canvas, "image/jpeg", quality);
     blob = encoded;
     if (encoded.size <= maxBytes) break;
 
@@ -111,10 +108,11 @@ export async function imageFileToWebp(
     attempts += 1;
   }
 
-  if (!blob) throw new Error("WebP conversion failed");
+  if (!blob) throw new Error("Image conversion failed");
 
   const base = fileNameBase || file.name.replace(/\.[^/.]+$/, "") || "image";
-  const out = new File([blob], `${base}.webp`, { type: "image/webp" });
+  // ✅ FIX: .jpg kengaytmasi
+  const out = new File([blob], `${base}.jpg`, { type: "image/jpeg" });
 
   if (decoded instanceof ImageBitmap) decoded.close();
   return out;
