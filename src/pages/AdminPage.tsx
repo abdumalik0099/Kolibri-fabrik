@@ -117,9 +117,30 @@ export default function AdminPage() {
     const supported = isWebAuthnSupported();
     setBioSupported(supported);
     if (supported) {
-      setBioRegistered(!!localStorage.getItem(WEBAUTHN_CRED_KEY));
+      const credId = localStorage.getItem(WEBAUTHN_CRED_KEY);
+      if (credId) {
+        setBioRegistered(true);
+        // Sahifa ochilishi bilanoq avtomatik biometrik so'raladi
+        setTimeout(() => autoTriggerBiometric(credId), 300);
+      }
     }
   }, []);
+
+  async function autoTriggerBiometric(credId: string) {
+    setBioLoading(true);
+    try {
+      const ok = await verifyBiometric(credId);
+      if (ok) { setAuthed(true); }
+    } catch (err: any) {
+      if (err?.name === "InvalidStateError") {
+        localStorage.removeItem(WEBAUTHN_CRED_KEY);
+        setBioRegistered(false);
+      }
+      // Xato bo'lsa parol formasi ko'rinadi
+    } finally {
+      setBioLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (authed) { loadProducts(); loadCategories(); }
@@ -315,22 +336,28 @@ export default function AdminPage() {
 
           {/* Biometrik kirish tugmasi */}
           {bioRegistered && !showRegisterPrompt && (
-            <motion.button
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              type="button"
-              onClick={handleBiometricLogin}
-              disabled={bioLoading}
-              className="w-full mb-5 py-5 rounded-xl border border-gold/40 bg-gold/5 hover:bg-gold/10 text-cream flex flex-col items-center justify-center gap-2 transition-all group"
+              className="w-full mb-5 py-5 rounded-xl border border-gold/40 bg-gold/5 text-cream flex flex-col items-center justify-center gap-2"
             >
               {bioLoading
                 ? <Loader2 size={32} className="animate-spin text-gold" />
-                : <Fingerprint size={32} className="text-gold group-hover:scale-110 transition-transform" />
+                : <Fingerprint size={32} className="text-gold" />
               }
               <span className="text-sm font-medium">
-                {bioLoading ? "Tekshirilmoqda..." : "Barmoq izi / Face ID bilan kirish"}
+                {bioLoading ? "Biometrik tekshirilmoqda..." : "Biometrik rad etildi"}
               </span>
-            </motion.button>
+              {!bioLoading && (
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  className="mt-1 text-xs text-gold/70 hover:text-gold underline underline-offset-2 transition"
+                >
+                  Qayta urinish
+                </button>
+              )}
+            </motion.div>
           )}
 
           {/* Ajratgich */}
