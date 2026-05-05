@@ -587,6 +587,7 @@ export default function AdminPage() {
           </>
         )}
 
+
         {/* CATEGORIES TAB */}
         {tab === "categories" && (
           loadingCategories ? (
