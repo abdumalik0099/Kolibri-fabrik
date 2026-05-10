@@ -182,17 +182,21 @@ export default function ProductPage() {
                 }}
               >
                 {productVideoUrl ? (
-                  // ✅ Video - hover effekti YO'Q, bosish = lightbox
-                  <video
-                    src={productVideoUrl}
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                    preload="metadata"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
+  // ✅ Video - hover effekti YO'Q, bosish = lightbox
+  <video
+    src={productVideoUrl}
+    muted
+    loop
+    autoPlay
+    playsInline
+    preload="metadata"
+    /* Yangi qo'shilgan sozlamalar 👇 */
+    controlsList="nodownload noplaybackrate"
+    disablePictureInPicture
+    onContextMenu={(e) => e.preventDefault()}
+    className="w-full h-full object-cover"
+  />
+) : (
                   <img
                     src={mainImage || logoPlaceholder}
                     alt={product.title}
@@ -355,14 +359,111 @@ export default function ProductPage() {
               onClick={(e) => e.stopPropagation()}
             >
               {currentMedia.type === "video" ? (
-                <video
-                  src={currentMedia.src}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="max-w-[90vw] max-h-[90vh] rounded-xl"
-                />
-              ) : (
+  <video
+    src={currentMedia.src}
+    autoPlay
+    playsInline
+    controlsList="nodownload noplaybackrate"
+    disablePictureInPicture
+    onContextMenu={(e) => e.preventDefault()}
+    className="max-w-[90vw] max-h-[90vh] rounded-xl cursor-pointer select-none"
+    
+    /* Foydalanuvchi bosganda */
+    onPointerDown={(e) => {
+      e.stopPropagation();
+      const videoEl = e.currentTarget;
+      
+      const rect = videoEl.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const width = rect.width;
+      
+      // 300ms ushlab tursa, uzoq bosish boshlanadi
+      const longPressTimer = setTimeout(() => {
+        videoEl.dataset.isLongPress = "true";
+        
+        if (clickX > width / 2) {
+          // 👉 O'NG TOMON: Oldinga 1.7x tezlik (ovoz chiroyli tezlashadi)
+          videoEl.playbackRate = 1.7;
+          videoEl.muted = false; 
+        } else {
+          // 👈 CHAP TOMON: Videoni orqaga qaytarish (Revers)
+          videoEl.pause();
+          
+          if (videoEl.dataset.reverseIntervalId) {
+            clearInterval(Number(videoEl.dataset.reverseIntervalId));
+          }
+
+          // 🔇 Orqaga qaytayotganda ovozni o'chirib turamiz (shovqin va g'o'ldirash bo'lmasligi uchun)
+          videoEl.muted = true;
+
+          const reverseInterval = setInterval(() => {
+            if (videoEl.currentTime > 0.1) {
+              videoEl.currentTime -= 0.1;
+            } else {
+              videoEl.currentTime = 0;
+              clearInterval(reverseInterval);
+            }
+          }, 50);
+          
+          videoEl.dataset.reverseIntervalId = String(reverseInterval);
+        }
+      }, 300);
+
+      videoEl.dataset.longPressTimer = String(longPressTimer);
+      videoEl.dataset.isLongPress = "false";
+    }}
+
+    /* Qo'yib yuborganda */
+    onPointerUp={(e) => {
+      e.stopPropagation();
+      const videoEl = e.currentTarget;
+      
+      const timer = videoEl.dataset.longPressTimer;
+      if (timer) clearTimeout(Number(timer));
+      
+      const reverseIntervalId = videoEl.dataset.reverseIntervalId;
+      if (reverseIntervalId) {
+        clearInterval(Number(reverseIntervalId));
+        videoEl.dataset.reverseIntervalId = "";
+      }
+      
+      const isLongPress = videoEl.dataset.isLongPress === "true";
+      
+      // Qo'yib yuborishi bilan tezlikni 1x qilamiz va ovozni darhol yoqamiz (Unmute)
+      videoEl.playbackRate = 1.0;
+      videoEl.muted = false;
+
+      if (isLongPress) {
+        videoEl.play().catch(console.error);
+      } else {
+        // Shunchaki bir marta bosganda Play/Pause (ovoz bilan)
+        if (videoEl.paused) {
+          videoEl.play().catch(console.error);
+        } else {
+          videoEl.pause();
+        }
+      }
+    }}
+
+    /* Kursor yoki barmoq chetga chiqib ketsa, hammasini tiklaymiz */
+    onPointerLeave={(e) => {
+      const videoEl = e.currentTarget;
+      
+      const timer = videoEl.dataset.longPressTimer;
+      if (timer) clearTimeout(Number(timer));
+      
+      const reverseIntervalId = videoEl.dataset.reverseIntervalId;
+      if (reverseIntervalId) {
+        clearInterval(Number(reverseIntervalId));
+        videoEl.dataset.reverseIntervalId = "";
+      }
+      
+      videoEl.playbackRate = 1.0;
+      videoEl.muted = false; // Ovozni yoqish
+      videoEl.play().catch(console.error);
+    }}
+  />
+) : (
                 <img
                   src={currentMedia.src}
                   alt={product.title}

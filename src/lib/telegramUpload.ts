@@ -5,15 +5,25 @@ export type TelegramUploadResult = {
   message_id?: number;
 };
 
+// 1. Sening yangi Render backend manziling (localhost o'rniga)
+const API_URL = "https://kolibri-server.onrender.com";
+
+// 2. Sayt Vercel'da turganda so'rovlarni to'g'ri Render'ga yo'naltirish funksiyasi
 function apiUrl(path: string): string {
-  return path;
+  // Agar yo'l allaqachon to'liq havola bo'lsa, o'zini qaytaramiz
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  // Bo'lmasa uni Render serverimiz havolasiga ulaymiz
+  return `${API_URL}${path}`;
 }
 
 export async function uploadImageToTelegram(params: {
   dataUrl: string;
   fileName?: string;
 }): Promise<TelegramUploadResult> {
-  const res = await fetch(apiUrl("/api/upload"), {
+  // Bu qism Vercel API orqali ishlayveradi (chunki /api/upload o'ziniki)
+  const res = await fetch("/api/upload", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ dataUrl: params.dataUrl, fileName: params.fileName }),
@@ -32,7 +42,8 @@ export async function uploadVideoToTelegram(params: {
   const formData = new FormData();
   formData.append("video", params.file, params.fileName || params.file.name || "product-video.mp4");
 
-  const res = await fetch("http://localhost:3001/api/upload-video", {
+  // 3. Localhost o'rniga bizning Render dagi yangi API_URL ishlatiladi
+  const res = await fetch(apiUrl("/api/upload-video"), {
     method: "POST",
     body: formData,
   });
@@ -54,7 +65,7 @@ export async function uploadVideoToTelegram(params: {
 
   const fileId = json.largest_file_id || json.file_id;
   if (!fileId) {
-    throw new Error("No video file_id returned from local server");
+    throw new Error("No video file_id returned from server");
   }
 
   console.log("[uploadVideoToTelegram] response", json);
@@ -76,5 +87,6 @@ export async function deleteTelegramMessage(messageId: number): Promise<void> {
 }
 
 export function telegramFileProxyUrl(fileId: string): string {
+  // 4. Videolarni ko'rsatish uchun havolani Render serveriga yo'naltiramiz
   return apiUrl(`/api/file/${encodeURIComponent(fileId)}`);
 }
